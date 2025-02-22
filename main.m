@@ -77,9 +77,10 @@ for i = 1:length(selected_folders)
         lshoulderamp = table(repmat(lshoulderamp, height(accel_table), 1));
         lshoulderamp.Properties.VariableNames = {'lshoulderamp'};
 
-
+       
         %features = [accel_table model_outputs_ML velocity_table rshoulder_crp lshoulder_crp rhipamp lhipamp rshoulderamp lshoulderamp gesture];
-        features = [model_outputs_ML velocity_table gesture];
+       features = [model_outputs_ML gesture];
+
         all_features = [all_features; features];
 
     end
@@ -108,66 +109,27 @@ end
 %%
 clearvars -except all_features
 
-%% Sliding windows %%
-    % Define window sizes and overlap
-window_sizes = [20, 50, 100];  % Window sizes: 20, 50, and 100 frames
-overlaps = [10, 25, 50];  % Overlaps: 10, 25, and 50 frames
 
-% Initialize cell arrays to store the windows
-%%position_windows = {};
-%%velocity_windows = {};
+labels = all_features.gesture;
+features = all_features(:, setdiff(all_features.Properties.VariableNames, {'gesture'}));
 
 
-% Apply sliding windows to Position data
-%all_features_small = create_sliding_windows(all_features, window_sizes(1), overlaps(1));
 
-% Apply sliding windows to Velocity data
-%all_features_medium = create_sliding_windows(all_features, window_sizes(2), overlaps(2));
+% Standardization
+for i = 1:size(features, 2)
+    norm_features(:, i) = rescale(table2array(features(:, i)), 0, 1);
+end
 
-% Apply sliding windows to Acceleration data
-all_features_big = create_sliding_windows(all_features, window_sizes(3), overlaps(3));
+%% Permutation
 
-disp("Done with windowing")
-
-%%
-
-labels = all_features_big.gesture;
-features = all_features_big(:, setdiff(all_features_big.Properties.VariableNames, {'gesture'}));
-
-%% Normalize data
-[norm_features, C, S] = normalize(features);
-
-%% Split data
-% Create a partition: 80% for training, 20% for testing
-cv = cvpartition(length(labels), 'HoldOut', 0.2);  % 80% training, 20% testing
-
-% Create training and test sets using the partition
-x_train = features(training(cv), :);  
-y_train = labels(training(cv), :);    
-
-x_test = features(test(cv), :);       
-y_test = labels(test(cv), :);         
+rng(1)
+p = randperm(height(labels));
+xx = norm_features(p, :);
+yy = labels(p, :);
 
 
-%% Testing base classification tree
-mdl = fitcknn(x_test, y_test, 'NumNeighbors',8;
 
-%% Cross validation
-% Perform k-fold cross-validation (e.g., 5-fold) for better model evaluation
-cv = cvpartition(length(labels), 'KFold', 5);
-cvmdl = fitcknn(features, labels, 'NumNeighbors', 8, 'NSMethod', 'kdtree', 'CrossVal', 'on');
 
-% Calculate cross-validation loss
-cvLoss = kfoldLoss(cvmdl);
-disp(['Cross-validation loss: ', num2str(cvLoss)]);
-%%
-% Predict on a test set (X_test)
-predicted_labels = predict(mdl, x_test);
-
-% Evaluate using confusion matrix or accuracy
-confusionMatrix = confusionmat(y_test, predicted_labels);
-accuracy = sum(predicted_labels == y_test) / length(y_test);
-disp(['Accuracy: ', num2str(accuracy)]);
 
 %% test different data sets
 
@@ -195,15 +157,12 @@ rshoulderamp.Properties.VariableNames = {'rshoulderamp'};
 lshoulderamp = table(repmat(lshoulderamp, height(accel_table), 1));
 lshoulderamp.Properties.VariableNames = {'lshoulderamp'};
 
+test_trial = [accel_table model_outputs_ML velocity_table rshoulder_crp lshoulder_crp rhipamp lhipamp rshoulderamp lshoulderamp ];
 
-%test_trial = [accel_table model_outputs_ML velocity_table rshoulder_crp lshoulder_crp rhipamp lhipamp rshoulderamp lshoulderamp];
-test_trial = [model_outputs_ML velocity_table];   
 norm_test_trial = normalize(test_trial, 'center', C, 'scale', S);
 
-%%
-% Predict on a test set (X_test)
-predicted_labels = predict(mdl, norm_test_trial);
+% Perform K-means clustering on test trial data
+[cluster_test_idx, ~] = kmeans(norm_test_trial, k, 'Start', cluster_centers);
 
-gesture_predict = mode(predicted_labels);
-disp(gesture)
-disp(gesture_predict)
+% Display results: output the predicted cluster for the test data
+disp(['Predicted cluster: ', num2str(cluster_test_idx)])
