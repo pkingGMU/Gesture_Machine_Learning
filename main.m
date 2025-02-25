@@ -66,7 +66,7 @@ for i = 1:length(selected_folders)
         velocity.Properties.VariableNames = strcat("velocity_", velocity_table.Properties.VariableNames);
         rshoulder_crp = array2table(rshoulder_crp, "VariableNames", {'rshoulder_crp'});
         lshoulder_crp = array2table(lshoulder_crp, "VariableNames", {'lshoulder_crp'});
-        gesture = table(repmat(gesture, height(accel_table), 1));
+        gesture = table(gesture);
         gesture.Properties.VariableNames = {'gesture'};
         rhipamp = table(repmat(rhipamp, height(accel_table), 1));
         rhipamp.Properties.VariableNames = {'rhipamp'};
@@ -79,7 +79,7 @@ for i = 1:length(selected_folders)
 
        
         %features = [accel_table model_outputs_ML velocity_table rshoulder_crp lshoulder_crp rhipamp lhipamp rshoulderamp lshoulderamp gesture];
-       features = [model_outputs_ML gesture];
+       features = [model_outputs_ML accel_table velocity_table gesture];
 
         all_features = [all_features; features];
 
@@ -112,20 +112,49 @@ clearvars -except all_features
 
 labels = all_features.gesture;
 features = all_features(:, setdiff(all_features.Properties.VariableNames, {'gesture'}));
+% 
+% window_size = 100;
+% window_overlap = 50;
+% win_idx = 1;
+% idx = 1;
+% 
+% 
+% while win_idx + window_size <= height(features)
+%     win_features(idx, :) = mean(table2array(features(win_idx: win_idx + window_overlap, :)));
+%     % win_labels(idx, :) = mode(labels(win_idx: win_idx + window_overlap, :));
+%     k = 5; % Threshold for the minimum number of 1s in the window
+%     if sum(labels(win_idx: win_idx + window_overlap) == 1) >= k
+%         win_labels(idx, :) = 1;
+%     else
+%         win_labels(idx, :) = 0;
+%     end
+% 
+%     idx = idx + 1;
+%     win_idx = win_idx + window_overlap;
+% 
+% end
 
+%%
 
+win_features = convertvars(win_features, @iscell, "string");
+win_features = convertvars(win_features, @isstring, "double");
+
+%%
 
 % Standardization
 for i = 1:size(features, 2)
-    norm_features(:, i) = rescale(table2array(features(:, i)), 0, 1);
+    norm_win_features(:, i) = rescale(table2array(features(:, i)), 0, 1);
+    % norm_features(:, i) = rescale(table2array(features(:, i)), 0, 1);
 end
 
 %% Permutation
 
 rng(1)
 p = randperm(height(labels));
-xx = norm_features(p, :);
+xx = array2table(norm_win_features(p, :));
+xx.Properties.VariableNames = features.Properties.VariableNames;
 yy = labels(p, :);
+% yy.Properties.VariableNames = {'Gesture'};
 
 
 
