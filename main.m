@@ -63,7 +63,7 @@ for i = 1:length(selected_folders)
 
         accel_table.Properties.VariableNames = strcat("accel_", accel_table.Properties.VariableNames);
         model_outputs_ML.Properties.VariableNames = strcat("model_", model_outputs_ML.Properties.VariableNames);
-        velocity.Properties.VariableNames = strcat("velocity_", velocity_table.Properties.VariableNames);
+        velocity_table.Properties.VariableNames = strcat("velocity_", velocity_table.Properties.VariableNames);
         rshoulder_crp = array2table(rshoulder_crp, "VariableNames", {'rshoulder_crp'});
         lshoulder_crp = array2table(lshoulder_crp, "VariableNames", {'lshoulder_crp'});
         gesture = table(gesture);
@@ -79,7 +79,7 @@ for i = 1:length(selected_folders)
 
        
         %features = [accel_table model_outputs_ML velocity_table rshoulder_crp lshoulder_crp rhipamp lhipamp rshoulderamp lshoulderamp gesture];
-       features = [model_outputs_ML accel_table velocity_table gesture];
+        features = [model_outputs_ML accel_table velocity_table gesture];
 
         all_features = [all_features; features];
 
@@ -109,6 +109,10 @@ end
 %%
 clearvars -except all_features
 
+%% Remove rows that contain majority 0's
+row_modes = sum(all_features{:,:} == 0, 2);
+rows_delete = row_modes >= 10;
+all_features(rows_delete, :) = [];
 
 labels = all_features.gesture;
 features = all_features(:, setdiff(all_features.Properties.VariableNames, {'gesture'}));
@@ -150,48 +154,8 @@ end
 %% Permutation
 
 rng(1)
-p = randperm(height(labels));
+p = randperm(height(labels)); 
 xx = array2table(norm_win_features(p, :));
 xx.Properties.VariableNames = features.Properties.VariableNames;
 yy = labels(p, :);
 % yy.Properties.VariableNames = {'Gesture'};
-
-
-
-
-
-%% test different data sets
-
-trial_data_folder = fullfile(pwd, 'Data', '010_Ohio', 'DTWalk08', 'Idv');
-saved_files = dir(fullfile(trial_data_folder, '*.mat'));
-
-for mat_files = 1:numel(saved_files)
-    file = fullfile(trial_data_folder, saved_files(mat_files).name);
-    load(file);
-end
-
-accel_table.Properties.VariableNames = strcat("accel_", accel_table.Properties.VariableNames);
-model_outputs_ML.Properties.VariableNames = strcat("model_", model_outputs_ML.Properties.VariableNames);
-velocity.Properties.VariableNames = strcat("velocity_", velocity_table.Properties.VariableNames);
-rshoulder_crp = array2table(rshoulder_crp, "VariableNames", {'rshoulder_crp'});
-lshoulder_crp = array2table(lshoulder_crp, "VariableNames", {'lshoulder_crp'});
-%%gesture = table(repmat(gesture, height(accel_table), 1));
-%%gesture.Properties.VariableNames = {'gesture'};
-rhipamp = table(repmat(rhipamp, height(accel_table), 1));
-rhipamp.Properties.VariableNames = {'rhipamp'};
-lhipamp = table(repmat(lhipamp, height(accel_table), 1));
-lhipamp.Properties.VariableNames = {'lhipamp'};
-rshoulderamp = table(repmat(rshoulderamp, height(accel_table), 1));
-rshoulderamp.Properties.VariableNames = {'rshoulderamp'};
-lshoulderamp = table(repmat(lshoulderamp, height(accel_table), 1));
-lshoulderamp.Properties.VariableNames = {'lshoulderamp'};
-
-test_trial = [accel_table model_outputs_ML velocity_table rshoulder_crp lshoulder_crp rhipamp lhipamp rshoulderamp lshoulderamp ];
-
-norm_test_trial = normalize(test_trial, 'center', C, 'scale', S);
-
-% Perform K-means clustering on test trial data
-[cluster_test_idx, ~] = kmeans(norm_test_trial, k, 'Start', cluster_centers);
-
-% Display results: output the predicted cluster for the test data
-disp(['Predicted cluster: ', num2str(cluster_test_idx)])
